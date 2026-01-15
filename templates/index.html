@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Dev Assistant</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="with-sidebar">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-header-content">
+                <button class="btn-icon" onclick="showWelcome()" title="Back to home">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="12" x2="21" y2="12"/>
+                        <line x1="3" y1="6" x2="21" y2="6"/>
+                        <line x1="3" y1="18" x2="21" y2="18"/>
+                    </svg>
+                </button>
+                <h1 class="sidebar-logo">AI Dev Assistant</h1>
+            </div>
+        </div>
+        
+        <!-- Projects List -->
+        <div class="sidebar-section">
+            <div class="sidebar-section-header">
+                <h3>Projects</h3>
+                <button class="btn-icon btn-sm" onclick="openNewProjectModal()" title="New Project">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div id="projects-list" class="projects-list">
+                <div class="empty-state-small">
+                    <p>No projects</p>
+                    <button class="btn-link" onclick="openNewProjectModal()">Create one</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tickets List (appears when project selected) -->
+        <div class="sidebar-section" id="tickets-section" style="display: none;">
+            <div class="sidebar-section-header">
+                <h3>Tickets</h3>
+                <button class="btn-icon btn-sm" onclick="startNewTicket()" title="New Ticket">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div id="tickets-list" class="tickets-list"></div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <h2 id="page-title">Welcome</h2>
+                </div>
+                <div class="header-right">
+                    <div class="status-indicator" id="status-indicator">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Checking...</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Content Views -->
+        
+        <!-- Welcome View (No Project Selected) -->
+        <div id="view-welcome" class="content-view active">
+            <div class="welcome-container">
+                <div class="welcome-icon">
+                    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                        <line x1="12" y1="22.08" x2="12" y2="12"/>
+                    </svg>
+                </div>
+                <h1>Welcome to AI Dev Assistant</h1>
+                <p class="welcome-text">Get started by creating your first project or checking the system setup.</p>
+                
+                <div class="welcome-actions">
+                    <button class="btn-primary btn-lg" onclick="openNewProjectModal()">
+                        Create Project
+                    </button>
+                    <button class="btn-secondary btn-lg" onclick="showSetup()">
+                        Check Setup
+                    </button>
+                </div>
+                
+                <div class="welcome-features">
+                    <div class="feature-item">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+                        </svg>
+                        <div>
+                            <h3>GitHub Integration</h3>
+                            <p>Create repos and manage code</p>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                        </svg>
+                        <div>
+                            <h3>AI Code Generation</h3>
+                            <p>Describe features, get code</p>
+                        </div>
+                    </div>
+                    <div class="feature-item">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="16 18 22 12 16 6"/>
+                            <polyline points="8 6 2 12 8 18"/>
+                        </svg>
+                        <div>
+                            <h3>Automatic PRs</h3>
+                            <p>From ticket to pull request</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Setup View -->
+        <div id="view-setup" class="content-view">
+            <div class="card">
+                <div class="card-header">
+                    <h2>System Setup</h2>
+                    <button class="btn-icon" onclick="checkSetup()" title="Refresh">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <p class="card-description">
+                        Verify required dependencies
+                        <span class="info-icon" data-tooltip="Git, GitHub CLI, Ollama, and AI model must be available">i</span>
+                    </p>
+                    
+                    <div class="setup-grid">
+                        <div class="setup-item" id="setup-git">
+                            <div class="setup-icon"></div>
+                            <div class="setup-info">
+                                <div class="setup-label">Git</div>
+                                <div class="setup-status">Checking...</div>
+                            </div>
+                        </div>
+                        
+                        <div class="setup-item" id="setup-gh">
+                            <div class="setup-icon"></div>
+                            <div class="setup-info">
+                                <div class="setup-label">GitHub CLI</div>
+                                <div class="setup-status">Checking...</div>
+                            </div>
+                        </div>
+                        
+                        <div class="setup-item" id="setup-ollama">
+                            <div class="setup-icon"></div>
+                            <div class="setup-info">
+                                <div class="setup-label">Ollama Server</div>
+                                <div class="setup-status">Checking...</div>
+                            </div>
+                        </div>
+                        
+                        <div class="setup-item" id="setup-model">
+                            <div class="setup-icon"></div>
+                            <div class="setup-info">
+                                <div class="setup-label">AI Model</div>
+                                <div class="setup-status">Checking...</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="setup-help">
+                        <h3>Installation Commands</h3>
+                        <div class="code-block">
+                            <code># GitHub CLI<br>brew install gh<br>gh auth login</code>
+                        </div>
+                        <div class="code-block">
+                            <code># Ollama<br>brew install ollama<br>ollama serve</code>
+                        </div>
+                        <div class="code-block">
+                            <code># AI Model<br>ollama pull qwen2.5-coder:7b</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Project View -->
+        <div id="view-project" class="content-view">
+            <!-- Project Info -->
+            <div class="project-info" id="project-info" style="display: none;">
+                <div class="project-info-content">
+                    <div class="project-info-main">
+                        <h2 id="project-name"></h2>
+                        <p id="project-description"></p>
+                    </div>
+                    <div class="project-info-actions">
+                        <a id="project-repo-link" href="#" target="_blank" class="btn-secondary btn-sm" style="display: none;">
+                            View Repository
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ticket Form -->
+            <div class="card">
+                <div class="card-header">
+                    <h2>Create Ticket</h2>
+                </div>
+                <div class="card-body">
+                    <form id="ticket-form">
+                        <div class="form-group">
+                            <label>
+                                Ticket ID
+                                <span class="required">*</span>
+                                <span class="info-icon" data-tooltip="Format: PREFIX-NUMBER (e.g., FEAT-001)">i</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="ticket-id" 
+                                placeholder="FEAT-001" 
+                                pattern="[A-Z]+-[0-9]+"
+                                required
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                Feature Description
+                                <span class="required">*</span>
+                                <span class="info-icon" data-tooltip="Describe what you want to build">i</span>
+                            </label>
+                            <textarea 
+                                id="description" 
+                                rows="6" 
+                                placeholder="Example: Create a responsive contact form..."
+                                required
+                            ></textarea>
+                        </div>
+
+                        <div class="examples-section">
+                            <label>Quick Examples</label>
+                            <div class="examples-grid">
+                                <button type="button" class="example-card" data-ticket="FEAT-001" data-desc="Create a contact form with name, email, phone and message fields. Add validation.">
+                                    <div class="example-title">Contact Form</div>
+                                    <div class="example-desc">Form with validation</div>
+                                </button>
+                                <button type="button" class="example-card" data-ticket="FEAT-002" data-desc="Build a pricing table with 3 tiers: Basic ($9/mo), Pro ($29/mo), Enterprise ($99/mo).">
+                                    <div class="example-title">Pricing Table</div>
+                                    <div class="example-desc">3-tier pricing</div>
+                                </button>
+                                <button type="button" class="example-card" data-ticket="FEAT-003" data-desc="Create a responsive navigation menu with logo, menu items, and hamburger icon for mobile.">
+                                    <div class="example-title">Navigation</div>
+                                    <div class="example-desc">Responsive navbar</div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-primary btn-block" id="generate-btn">
+                            Generate Code
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Progress Card -->
+            <div class="card" id="progress-card" style="display: none;">
+                <div class="card-header">
+                    <h2>Generation Progress</h2>
+                </div>
+                <div class="card-body">
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill"></div>
+                        </div>
+                        <div class="progress-info">
+                            <span id="current-step">Initializing...</span>
+                            <span id="progress-percentage">0%</span>
+                        </div>
+                    </div>
+                    <div id="steps-log" class="steps-log"></div>
+                </div>
+            </div>
+
+            <!-- Success Card -->
+            <div class="card card-success" id="success-card" style="display: none;">
+                <div class="card-header">
+                    <h2>Generation Complete</h2>
+                </div>
+                <div class="card-body">
+                    <div class="success-content">
+                        <div class="success-item">
+                            <label>Ticket ID:</label>
+                            <span id="success-ticket"></span>
+                        </div>
+                        <div class="success-item">
+                            <label>Description:</label>
+                            <span id="success-feature"></span>
+                        </div>
+                        <div class="success-item" id="pr-section" style="display: none;">
+                            <label>Pull Request:</label>
+                            <a id="pr-link" href="#" target="_blank" class="pr-link">View on GitHub</a>
+                        </div>
+                    </div>
+                    
+                    <div class="button-group">
+                        <button class="btn-primary" onclick="startNewTicket()">
+                            Create Another Ticket
+                        </button>
+                        <button class="btn-secondary" id="view-pr-btn" style="display: none;" onclick="window.open(document.getElementById('pr-link').href, '_blank')">
+                            Open Pull Request
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- New Project Modal -->
+    <div id="new-project-modal" class="modal">
+        <div class="modal-overlay" onclick="closeNewProjectModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Project</h3>
+                <button class="btn-icon" onclick="closeNewProjectModal()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <form id="new-project-form">
+                    <div class="form-group">
+                        <label>Project Name <span class="required">*</span></label>
+                        <input type="text" id="project-name-input" placeholder="My Awesome Project" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="project-description-input" rows="3" placeholder="What is this project about?"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="create-repo-checkbox">
+                            <span>Create GitHub repository automatically</span>
+                        </label>
+                        <small>A new public repository will be created on GitHub</small>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeNewProjectModal()">Cancel</button>
+                <button class="btn-primary" onclick="createProject()">Create Project</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tooltip -->
+    <div id="tooltip" class="tooltip"></div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
