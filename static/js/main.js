@@ -233,8 +233,12 @@ function startNewTicket() {
     document.getElementById('progress-card').style.display = 'none';
     document.getElementById('success-card').style.display = 'none';
     
+    // Clear both fields
     document.getElementById('ticket-id').value = '';
     document.getElementById('description').value = '';
+    
+    // Clear progress log
+    document.getElementById('steps-log').innerHTML = '';
 }
 
 // ═══════════════════════════════════════════════════════
@@ -248,7 +252,7 @@ function setupEventListeners() {
     // Example cards
     document.querySelectorAll('.example-card').forEach(card => {
         card.addEventListener('click', function() {
-            document.getElementById('ticket-id').value = this.dataset.ticket;
+            document.getElementById('ticket-id').value = '';  // Leave empty for auto-generation
             document.getElementById('description').value = this.dataset.desc;
         });
     });
@@ -262,11 +266,11 @@ async function handleTicketSubmit(e) {
         return;
     }
     
-    const ticketId = document.getElementById('ticket-id').value.trim();
+    const ticketId = document.getElementById('ticket-id').value.trim();  // Can be empty now!
     const description = document.getElementById('description').value.trim();
     
-    if (!ticketId || !description) {
-        alert('Please fill in all required fields');
+    if (!description) {
+        alert('Please enter a description');
         return;
     }
     
@@ -288,7 +292,7 @@ async function generateCode(projectId, ticketId, description) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 project_id: projectId,
-                ticket_id: ticketId,
+                ticket_id: ticketId,  // Can be empty string
                 description: description
             })
         });
@@ -303,7 +307,19 @@ async function generateCode(projectId, ticketId, description) {
             throw new Error(data.error);
         }
         
-        subscribeToProgress(ticketId, description);
+        // Use the ticket_id from response (may be auto-generated)
+        const finalTicketId = data.ticket_id;
+        
+        // Show auto-generated ticket ID if applicable
+        if (data.auto_generated) {
+            const log = document.getElementById('steps-log');
+            const item = document.createElement('div');
+            item.className = 'step-log-item';
+            item.textContent = `🎫 Generated ticket ID: ${finalTicketId}`;
+            log.appendChild(item);
+        }
+        
+        subscribeToProgress(finalTicketId, description);
         
     } catch (error) {
         alert('Error starting code generation: ' + error.message);

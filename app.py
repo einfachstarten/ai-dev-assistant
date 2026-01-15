@@ -194,11 +194,11 @@ def create_ticket():
     """Generate code for a ticket - starts async workflow"""
     data = request.json
     project_id = data.get('project_id', '').strip()
-    ticket_id = data.get('ticket_id', '').strip()
+    ticket_id = data.get('ticket_id', '').strip()  # Now optional!
     description = data.get('description', '').strip()
     
-    if not ticket_id or not description:
-        return jsonify({'error': 'Ticket ID and description required'}), 400
+    if not description:
+        return jsonify({'error': 'Description required'}), 400
     
     if not project_id:
         return jsonify({'error': 'Project ID required'}), 400
@@ -210,6 +210,13 @@ def create_ticket():
     
     if not project.get('repo_name'):
         return jsonify({'error': 'Project has no connected repository'}), 400
+    
+    # Auto-generate ticket ID if not provided
+    if not ticket_id:
+        generator = OllamaCodeGenerator()
+        existing_tickets = project.get('tickets', [])
+        ticket_id = generator.generate_ticket_id(description, existing_tickets)
+        print(f"🎫 Auto-generated: {ticket_id}")
     
     # Initialize status queue
     ticket_queues[ticket_id] = Queue()
@@ -235,7 +242,8 @@ def create_ticket():
         'ticket_id': ticket_id,
         'description': description,
         'project_id': project_id,
-        'status': 'started'
+        'status': 'started',
+        'auto_generated': data.get('ticket_id', '').strip() == ''  # Flag if was auto-generated
     })
 
 @app.route('/api/status/<ticket_id>')

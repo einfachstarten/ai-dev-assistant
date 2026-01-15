@@ -23,6 +23,49 @@ class OllamaCodeGenerator:
         self.base_url = base_url
         self.api_url = f"{base_url}/api/generate"
     
+    def generate_ticket_id(self, description: str, project_tickets: List[Dict] = None) -> str:
+        """
+        Auto-generate a ticket ID from description
+        
+        Args:
+            description: Task description
+            project_tickets: Existing tickets to avoid duplicates
+            
+        Returns:
+            Generated ticket ID (e.g., FEAT-001, FIX-003)
+        """
+        desc_lower = description.lower()
+        
+        # Determine prefix based on keywords
+        if any(kw in desc_lower for kw in ['fix', 'bug', 'error', 'issue', 'broken']):
+            prefix = 'FIX'
+        elif any(kw in desc_lower for kw in ['style', 'design', 'ui', 'css', 'color', 'layout']):
+            prefix = 'STYLE'
+        elif any(kw in desc_lower for kw in ['refactor', 'improve', 'optimize', 'clean']):
+            prefix = 'REFACTOR'
+        elif any(kw in desc_lower for kw in ['test', 'testing']):
+            prefix = 'TEST'
+        elif any(kw in desc_lower for kw in ['doc', 'documentation', 'readme']):
+            prefix = 'DOCS'
+        else:
+            prefix = 'FEAT'
+        
+        # Find next available number
+        if project_tickets:
+            # Get all tickets with same prefix
+            same_prefix = [
+                int(t['ticket_id'].split('-')[1]) 
+                for t in project_tickets 
+                if t['ticket_id'].startswith(prefix + '-')
+            ]
+            next_num = max(same_prefix) + 1 if same_prefix else 1
+        else:
+            next_num = 1
+        
+        ticket_id = f"{prefix}-{next_num:03d}"
+        print(f"🎫 Auto-generated ticket ID: {ticket_id}")
+        return ticket_id
+    
     def generate_code(self, 
                      ticket_id: str, 
                      description: str,

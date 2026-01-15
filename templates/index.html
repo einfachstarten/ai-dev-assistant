@@ -228,17 +228,16 @@
                     <form id="ticket-form">
                         <div class="form-group">
                             <label>
-                                Ticket ID
-                                <span class="required">*</span>
-                                <span class="info-icon" data-tooltip="Format: PREFIX-NUMBER (e.g., FEAT-001)">i</span>
+                                Ticket ID (optional - will be auto-generated)
+                                <span class="info-icon" data-tooltip="Leave empty for auto-generation based on description. Format: FEAT-001, FIX-002, STYLE-003">i</span>
                             </label>
                             <input 
                                 type="text" 
                                 id="ticket-id" 
-                                placeholder="FEAT-001" 
+                                placeholder="Leave empty for auto-generation" 
                                 pattern="[A-Z]+-[0-9]+"
-                                required
                             >
+                            <small>Smart prefixes: FEAT, FIX, STYLE, REFACTOR, TEST, DOCS</small>
                         </div>
 
                         <div class="form-group">
@@ -258,15 +257,15 @@
                         <div class="examples-section">
                             <label>Quick Examples</label>
                             <div class="examples-grid">
-                                <button type="button" class="example-card" data-ticket="FEAT-001" data-desc="Create a contact form with name, email, phone and message fields. Add validation.">
+                                <button type="button" class="example-card" data-desc="Create a contact form with name, email, phone and message fields. Add validation.">
                                     <div class="example-title">Contact Form</div>
                                     <div class="example-desc">Form with validation</div>
                                 </button>
-                                <button type="button" class="example-card" data-ticket="FEAT-002" data-desc="Build a pricing table with 3 tiers: Basic ($9/mo), Pro ($29/mo), Enterprise ($99/mo).">
+                                <button type="button" class="example-card" data-desc="Build a pricing table with 3 tiers: Basic ($9/mo), Pro ($29/mo), Enterprise ($99/mo).">
                                     <div class="example-title">Pricing Table</div>
                                     <div class="example-desc">3-tier pricing</div>
                                 </button>
-                                <button type="button" class="example-card" data-ticket="FEAT-003" data-desc="Create a responsive navigation menu with logo, menu items, and hamburger icon for mobile.">
+                                <button type="button" class="example-card" data-desc="Create a responsive navigation menu with logo, menu items, and hamburger icon for mobile.">
                                     <div class="example-title">Navigation</div>
                                     <div class="example-desc">Responsive navbar</div>
                                 </button>

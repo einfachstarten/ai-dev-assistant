@@ -181,14 +181,19 @@ class ProjectManager:
             'description': description,
             'pr_url': pr_url,
             'created_at': datetime.now().isoformat(),
-            'status': 'completed' if pr_url else 'in_progress'
+            'status': 'completed' if pr_url else 'in_progress',
+            'pr_status': None
         }
         
         # Get PR status if URL provided
         if pr_url:
+            print(f"📊 Fetching PR status for {pr_url}...")
             pr_status = self.get_pr_status(pr_url)
             if pr_status:
                 ticket['pr_status'] = pr_status
+                print(f"✅ PR Status: {pr_status['status_label']}")
+            else:
+                print("⚠️  Could not fetch PR status")
         
         projects[project_id]['tickets'].append(ticket)
         projects[project_id]['updated_at'] = datetime.now().isoformat()
@@ -198,17 +203,30 @@ class ProjectManager:
     
     def get_project_tickets(self, project_id: str) -> List[Dict]:
         """Get all tickets for a project with refreshed PR statuses"""
-        project = self.get_project(project_id)
+        projects = self._load_projects()
+        project = projects.get(project_id)
+        
         if not project:
             return []
         
-        # Refresh PR statuses
+        # ALWAYS refresh PR statuses for tickets with PR URLs
         tickets = project['tickets']
+        needs_save = False
+        
         for ticket in tickets:
             if ticket.get('pr_url'):
+                # Always fetch fresh status
                 pr_status = self.get_pr_status(ticket['pr_url'])
                 if pr_status:
-                    ticket['pr_status'] = pr_status
+                    # Update if changed or not present
+                    if ticket.get('pr_status') != pr_status:
+                        ticket['pr_status'] = pr_status
+                        needs_save = True
+        
+        # Save if we updated any tickets
+        if needs_save:
+            self._save_projects(projects)
+            print(f"💾 Updated PR statuses for project {project_id}")
         
         return tickets
     
@@ -253,6 +271,7 @@ class ProjectManager:
             # Format: https://github.com/owner/repo/pull/123
             parts = pr_url.rstrip('/').split('/')
             if len(parts) < 7 or parts[5] != 'pull':
+                print(f"❌ Invalid PR URL format: {pr_url}")
                 return None
             
             owner = parts[3]
@@ -264,7 +283,7 @@ class ProjectManager:
                 [
                     'gh', 'pr', 'view', pr_number,
                     '--repo', f"{owner}/{repo}",
-                    '--json', 'state,isDraft,merged,mergedAt,closedAt,url'
+                    '--json', 'state,isDraft,mergedAt,mergedBy,closedAt,url'
                 ],
                 capture_output=True,
                 text=True,
@@ -274,7 +293,10 @@ class ProjectManager:
             data = json.loads(result.stdout)
             
             # Determine user-friendly status
-            if data.get('merged'):
+            # Check if merged (mergedAt will be a timestamp if merged, null otherwise)
+            is_merged = data.get('mergedAt') is not None
+            
+            if is_merged:
                 status = 'merged'
                 status_label = 'Merged'
             elif data.get('state') == 'CLOSED':
@@ -293,14 +315,23 @@ class ProjectManager:
             return {
                 'status': status,
                 'status_label': status_label,
-                'merged': data.get('merged', False),
+                'merged': is_merged,
                 'merged_at': data.get('mergedAt'),
+                'merged_by': data.get('mergedBy'),
                 'closed_at': data.get('closedAt'),
                 'url': data.get('url')
             }
             
+        except subprocess.CalledProcessError as e:
+            print(f"❌ GitHub CLI error: {e.stderr}")
+            return None
+        except json.JSONDecodeError as e:
+            print(f"❌ Failed to parse GitHub response: {e}")
+            return None
         except Exception as e:
-            print(f"Failed to get PR status: {e}")
+            print(f"❌ Failed to get PR status: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     # ─────────────────────────────────────────────────────
