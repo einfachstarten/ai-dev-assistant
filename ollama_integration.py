@@ -40,12 +40,24 @@ class OllamaCodeGenerator:
         Returns:
             Dict with 'files' list and 'summary' string
         """
-        print(f"🤖 Generating code with {self.model}...")
+        print(f"🤖 Two-phase generation with {self.model}...")
+
+        # PHASE 1: Design Planning
+        design_spec = self._generate_design_spec(ticket_id, description, context)
+
+        # PHASE 2: Implementation
+        print("💻 Phase 2: Generating implementation code...")
         
         # Construct prompt
-        prompt = self._build_prompt(ticket_id, description, context, mode)
+        prompt = self._build_prompt(
+            ticket_id,
+            description,
+            context,
+            mode,
+            design_spec=design_spec
+        )
         
-        # Call Ollama API
+        # Call Ollama API for implementation
         response = requests.post(
             self.api_url,
             json={
@@ -71,22 +83,116 @@ class OllamaCodeGenerator:
         # Extract and parse JSON from AI output
         parsed = self._parse_ai_output(ai_output)
         
+        parsed['design_spec'] = design_spec
+
         print(f"✅ Generated {len(parsed['files'])} file(s)")
         return parsed
+
+    def _generate_design_spec(self, ticket_id: str, description: str, context: Optional[str] = None) -> str:
+        """
+        Phase 1: Generate design specification
+        Uses creative prompt to plan UI/UX before coding
+        """
+        prompt = f"""You are an expert UI/UX designer with a keen eye for modern, beautiful interfaces.
+
+TASK: {ticket_id}
+REQUEST: {description}
+
+{"EXISTING CODEBASE:" + context if context else ""}
+
+Create a detailed design specification covering:
+
+1. FILES TO CREATE/EDIT:
+   - Which files need to be created or modified?
+   - What goes in each file?
+
+2. DESIGN CONCEPT:
+   - Visual style (modern, minimal, professional)
+   - Color palette (use modern hex codes)
+   - Layout structure (grid, flex, sections)
+   - Typography (font stack, sizes, weights)
+
+3. COMPONENT DESIGN:
+   - Key UI components needed
+   - Spacing and sizing (use Tailwind scale: px-4, py-6, etc)
+   - Interactive states (hover, focus, active)
+   - Responsive behavior
+
+4. TAILWIND CLASSES:
+   - Specific utility classes to use
+   - Modern techniques: gradients, shadows, rounded corners
+   - Professional polish: subtle transitions, proper contrast
+
+5. USER EXPERIENCE:
+   - How should interactions feel?
+   - Micro-animations or transitions?
+   - Accessibility considerations
+
+OUTPUT: Write a clear, detailed design specification in plain text.
+DO NOT write code yet - only the design plan."""
+
+        print("🎨 Phase 1: Generating design specification...")
+        
+        response = requests.post(
+            self.api_url,
+            json={
+                'model': self.model,
+                'prompt': prompt,
+                'stream': False,
+                'options': {
+                    'temperature': 0.9,
+                    'top_p': 0.95,
+                    'num_predict': 2000
+                }
+            },
+            timeout=60
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"Ollama API error: {response.text}")
+        
+        result = response.json()
+        design_spec = result.get('response', '')
+        
+        print(f"✅ Design spec generated ({len(design_spec)} chars)")
+        print("📝 Design spec preview:")
+        print(design_spec)
+        return design_spec
     
     def _build_prompt(self, 
                      ticket_id: str, 
                      description: str,
                      context: Optional[str] = None,
-                     mode: str = 'create') -> str:
+                     mode: str = 'create',
+                     design_spec: Optional[str] = None) -> str:
         """Build the prompt for the AI model"""
         
         # Base prompt parts
-        base_prompt = f"""You are a senior web developer. """
+        if design_spec:
+            base_prompt = f"""You are a senior full-stack developer implementing a pre-approved design.
+
+DESIGN SPECIFICATION:
+{design_spec}
+
+TASK: {ticket_id}
+ORIGINAL REQUEST: {description}
+
+{"EXISTING CODEBASE CONTEXT:" + context if context else ""}
+
+IMPLEMENTATION REQUIREMENTS:
+1. Follow the design specification EXACTLY
+2. Use the specified Tailwind CSS classes
+3. Implement all components described
+4. Create clean, well-commented code
+5. Ensure responsive design
+6. Add proper HTML5 semantics
+7. Include all interactions and states"""
+        else:
+            base_prompt = f"""You are a senior web developer. """
         
         # Add context if provided
         context_section = ""
-        if context:
+        if context and not design_spec:
             context_section = f"""
 
 EXISTING CODEBASE CONTEXT:
