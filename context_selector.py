@@ -147,32 +147,62 @@ class SmartContextSelector:
     
     def format_context_for_ai(self, relevant_files: List[RelevantFile]) -> str:
         """
-        Format selected files for AI prompt
-        
+        Format selected files for AI prompt with repository overview and dependencies
+
         Returns:
             Formatted string with file contents
         """
         context_parts = []
-        
-        context_parts.append("=== REPOSITORY CONTEXT ===\n")
-        context_parts.append(f"Project Type: {self.indexer.project_type}\n")
-        
+
+        # Repository Overview
+        context_parts.append("=== REPOSITORY OVERVIEW ===\n")
+        context_parts.append(f"Project Type: {self.indexer.project_type}")
+
+        summary = self.indexer.get_summary()
+        context_parts.append(f"Total Files: {summary['total_files']} ({summary['code_files']} code files)")
+        context_parts.append(f"Total Lines: {summary['total_lines']:,}")
+
+        # File structure overview
+        context_parts.append(f"\n📁 Repository Structure:")
+        file_tree = self._build_file_tree_overview()
+        context_parts.append(file_tree)
+
+        # Dependencies
         if self.indexer.dependencies:
-            context_parts.append(f"Dependencies: {list(self.indexer.dependencies.keys())}\n")
-        
-        context_parts.append(f"\n=== RELEVANT FILES ({len(relevant_files)}) ===\n")
-        
+            context_parts.append(f"\n📦 Dependencies:")
+            for dep_type, deps in self.indexer.dependencies.items():
+                if isinstance(deps, dict):
+                    context_parts.append(f"  {dep_type}: {', '.join(list(deps.keys())[:10])}")
+                elif isinstance(deps, list):
+                    context_parts.append(f"  {dep_type}: {', '.join(deps[:10])}")
+
+        # File extensions breakdown
+        if summary.get('by_extension'):
+            context_parts.append(f"\n📊 Code Distribution:")
+            for ext, stats in sorted(summary['by_extension'].items(), key=lambda x: x[1]['lines'], reverse=True)[:5]:
+                context_parts.append(f"  {ext}: {stats['count']} files, {stats['lines']} lines")
+
+        context_parts.append(f"\n{'='*60}")
+        context_parts.append(f"=== RELEVANT FILES FOR THIS TASK ({len(relevant_files)}) ===\n")
+
         for rf in relevant_files:
             file_info = rf.file_info
             content = self.indexer.get_file_content(file_info.relative_path)
-            
+
             if content:
                 context_parts.append(f"\n--- FILE: {file_info.relative_path} ---")
                 context_parts.append(f"Lines: {file_info.lines} | Extension: {file_info.extension}")
-                context_parts.append(f"Relevance: {', '.join(rf.reasons[:2])}\n")
+                context_parts.append(f"Relevance: {', '.join(rf.reasons[:2])}")
+
+                # Add detected dependencies for this file
+                file_deps = self._detect_file_dependencies(content, file_info.extension)
+                if file_deps:
+                    context_parts.append(f"Dependencies: {', '.join(file_deps[:5])}")
+
+                context_parts.append("")
                 context_parts.append(content)
                 context_parts.append(f"\n--- END FILE: {file_info.relative_path} ---\n")
-        
+
         return '\n'.join(context_parts)
     
     # ─────────────────────────────────────────────────────
@@ -350,24 +380,113 @@ class SmartContextSelector:
         """Select files within token budget"""
         selected = []
         total_tokens = 0
-        
+
         for rf in scored_files:
             if len(selected) >= max_files:
                 break
-            
+
             # Estimate tokens (rough: 1 token ≈ 4 chars)
             file_tokens = (rf.file_info.size // 4) if rf.file_info.size else 0
-            
+
             if total_tokens + file_tokens > max_tokens:
                 # Try to include at least one file even if over budget
                 if len(selected) == 0:
                     selected.append(rf)
                 break
-            
+
             selected.append(rf)
             total_tokens += file_tokens
-        
+
         return selected
+
+    def _build_file_tree_overview(self) -> str:
+        """Build a compact tree overview of repository structure"""
+        tree_lines = []
+
+        # Group files by directory
+        dirs: Dict[str, List[str]] = {}
+        for rel_path in sorted(self.files.keys()):
+            path_obj = Path(rel_path)
+            dir_name = str(path_obj.parent) if path_obj.parent != Path('.') else '/'
+
+            if dir_name not in dirs:
+                dirs[dir_name] = []
+            dirs[dir_name].append(path_obj.name)
+
+        # Format tree (limit to avoid overwhelming context)
+        max_dirs = 10
+        max_files_per_dir = 5
+
+        for i, (dir_name, files) in enumerate(sorted(dirs.items())[:max_dirs]):
+            tree_lines.append(f"  📁 {dir_name}/")
+            for file in files[:max_files_per_dir]:
+                tree_lines.append(f"     • {file}")
+            if len(files) > max_files_per_dir:
+                tree_lines.append(f"     ... and {len(files) - max_files_per_dir} more files")
+
+        if len(dirs) > max_dirs:
+            tree_lines.append(f"  ... and {len(dirs) - max_dirs} more directories")
+
+        return '\n'.join(tree_lines)
+
+    def _detect_file_dependencies(self, content: str, extension: str) -> List[str]:
+        """Detect imports/requires in file content"""
+        dependencies = []
+
+        # JavaScript/TypeScript imports
+        if extension in {'.js', '.jsx', '.ts', '.tsx'}:
+            # ES6 imports: import X from 'module'
+            import_pattern = r"import\s+(?:.*?from\s+)?['\"]([^'\"]+)['\"]"
+            dependencies.extend(re.findall(import_pattern, content))
+
+            # require(): const X = require('module')
+            require_pattern = r"require\(['\"]([^'\"]+)['\"]\)"
+            dependencies.extend(re.findall(require_pattern, content))
+
+        # Python imports
+        elif extension == '.py':
+            # import module / from module import X
+            import_pattern = r"(?:from\s+(\S+)|import\s+(\S+))"
+            matches = re.findall(import_pattern, content)
+            for match in matches:
+                dep = match[0] or match[1]
+                if dep:
+                    # Get first part of dotted import
+                    dependencies.append(dep.split('.')[0])
+
+        # CSS imports
+        elif extension in {'.css', '.scss', '.sass'}:
+            # @import 'file'
+            import_pattern = r"@import\s+['\"]([^'\"]+)['\"]"
+            dependencies.extend(re.findall(import_pattern, content))
+
+        # HTML script/link tags
+        elif extension == '.html':
+            # <script src="file.js">
+            script_pattern = r"<script[^>]+src=['\"]([^'\"]+)['\"]"
+            dependencies.extend(re.findall(script_pattern, content))
+
+            # <link href="file.css">
+            link_pattern = r"<link[^>]+href=['\"]([^'\"]+)['\"]"
+            dependencies.extend(re.findall(link_pattern, content))
+
+        # Remove duplicates and filter out external URLs
+        unique_deps = []
+        seen = set()
+        for dep in dependencies:
+            # Skip external URLs and node_modules
+            if dep.startswith(('http://', 'https://', '//', 'node_modules')):
+                continue
+            # Skip relative paths that are too generic
+            if dep in {'.', '..', './', '../'}:
+                continue
+            # Get just the module/file name
+            dep_name = dep.split('/')[-1].replace('.js', '').replace('.css', '')
+            if dep_name and dep_name not in seen:
+                unique_deps.append(dep_name)
+                seen.add(dep_name)
+
+        return unique_deps[:10]  # Limit to 10 most important
 
 
 def test_context_selector():
