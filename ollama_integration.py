@@ -136,43 +136,115 @@ class OllamaCodeGenerator:
         Phase 1: Generate design specification
         Uses creative prompt to plan UI/UX before coding
         """
-        prompt = f"""You are an expert UI/UX designer with a keen eye for modern, beautiful interfaces.
+        prompt = f"""You are an expert UI/UX designer who creates BEAUTIFUL, MODERN interfaces.
+You design like the best designers at Vercel, Linear, and Stripe.
 
 TASK: {ticket_id}
 REQUEST: {description}
 
-{"EXISTING CODEBASE:" + context if context else ""}
+{"EXISTING CODEBASE (DO NOT MODIFY unless explicitly requested):" + context if context else ""}
 
-Create a detailed design specification covering:
+=== YOUR DESIGN SPECIFICATION MUST INCLUDE ===
 
-1. FILES TO CREATE/EDIT:
-   - Which files need to be created or modified?
-   - What goes in each file?
+1. FILES ANALYSIS (CRITICAL - BE PRECISE):
+   === FILES TO CREATE (NEW) ===
+   - List ONLY files that DO NOT exist yet
+   - Example: sample.html (NEW FILE)
+   
+   === FILES TO MODIFY (EDIT) ===
+   - List ONLY files user explicitly asked to change
+   - If user says "create X", do NOT list existing files here!
+   - Example: If user says "create sample.html", do NOT modify index.html
+   
+   === FILES TO IGNORE ===
+   - List all existing files that should NOT be touched
 
-2. DESIGN CONCEPT:
-   - Visual style (modern, minimal, professional)
-   - Color palette (use modern hex codes)
-   - Layout structure (grid, flex, sections)
-   - Typography (font stack, sizes, weights)
+2. VISUAL DESIGN (BE SPECIFIC):
+   - Color Palette: Use modern hex codes
+     * Primary: #3b82f6 (blue-500)
+     * Accent: #8b5cf6 (purple-500) 
+     * Background: #f8fafc (slate-50)
+     * Text: #0f172a (slate-900)
+     * Border: #e2e8f0 (slate-200)
+   
+   - Modern Gradients:
+     * bg-gradient-to-br from-blue-500 to-purple-600
+     * bg-gradient-to-r from-cyan-500 to-blue-500
+   
+   - Shadows & Effects:
+     * shadow-xl shadow-blue-500/50 (glowing effect)
+     * shadow-2xl (deep shadow)
+     * backdrop-blur-sm (glass effect)
 
-3. COMPONENT DESIGN:
-   - Key UI components needed
-   - Spacing and sizing (use Tailwind scale: px-4, py-6, etc)
-   - Interactive states (hover, focus, active)
-   - Responsive behavior
+3. LAYOUT STRUCTURE:
+   - Use Flexbox or Grid (be specific)
+   - Spacing: p-8, gap-6, space-y-4 (use Tailwind scale)
+   - Max width: max-w-7xl mx-auto
+   - Responsive: grid-cols-1 md:grid-cols-2 lg:grid-cols-3
 
-4. TAILWIND CLASSES:
-   - Specific utility classes to use
-   - Modern techniques: gradients, shadows, rounded corners
-   - Professional polish: subtle transitions, proper contrast
+4. COMPONENT DETAILS:
+   - Buttons: 
+     * px-6 py-3 rounded-xl font-semibold
+     * Hover: hover:scale-105 transition-transform
+   
+   - Cards:
+     * bg-white rounded-2xl shadow-xl p-6
+     * border border-slate-200
+   
+   - Forms:
+     * rounded-lg border-2 border-slate-300 focus:border-blue-500
+     * px-4 py-3 transition-colors
 
-5. USER EXPERIENCE:
-   - How should interactions feel?
-   - Micro-animations or transitions?
-   - Accessibility considerations
+5. INTERACTIONS & ANIMATIONS:
+   - Transitions: transition-all duration-300
+   - Hover effects: hover:shadow-2xl hover:-translate-y-1
+   - Active states: active:scale-95
 
-OUTPUT: Write a clear, detailed design specification in plain text.
-DO NOT write code yet - only the design plan."""
+6. TYPOGRAPHY:
+   - Headings: font-bold text-4xl lg:text-5xl
+   - Subheadings: font-semibold text-xl text-slate-700
+   - Body: text-base text-slate-600 leading-relaxed
+
+=== EXAMPLE OF BEAUTIFUL MODERN DESIGN ===
+
+<div class="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-12">
+  <div class="max-w-4xl mx-auto px-4">
+    <div class="bg-white rounded-2xl shadow-2xl shadow-blue-500/10 p-8 backdrop-blur-sm">
+      <h1 class="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
+        Beautiful Heading
+      </h1>
+      <p class="text-slate-600 leading-relaxed mb-8">
+        Modern, clean design with perfect spacing and subtle effects.
+      </p>
+      <button class="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-4 rounded-xl font-semibold shadow-lg shadow-blue-500/50 hover:shadow-xl hover:scale-105 transition-all duration-300">
+        Call to Action
+      </button>
+    </div>
+  </div>
+</div>
+
+=== YOUR OUTPUT FORMAT ===
+
+Write your design specification in this EXACT structure:
+
+### FILES
+CREATE: [list new files]
+MODIFY: [list files to edit, or "None"]
+IGNORE: [list files to leave untouched]
+
+### COLORS
+[List exact hex codes and Tailwind classes]
+
+### LAYOUT
+[Describe structure with specific Tailwind classes]
+
+### COMPONENTS
+[Describe each component with exact classes]
+
+### INTERACTIONS
+[List hover, focus, active states]
+
+Be EXTREMELY specific with Tailwind classes. No vague descriptions!"""
 
         print("🎨 Phase 1: Generating design specification...")
         
@@ -185,10 +257,10 @@ DO NOT write code yet - only the design plan."""
                 'options': {
                     'temperature': 0.9,
                     'top_p': 0.95,
-                    'num_predict': 2000
+                    'num_predict': 2500
                 }
             },
-            timeout=60
+            timeout=90
         )
         
         if response.status_code != 200:
@@ -199,7 +271,7 @@ DO NOT write code yet - only the design plan."""
         
         print(f"✅ Design spec generated ({len(design_spec)} chars)")
         print("📝 Design spec preview:")
-        print(design_spec)
+        print(design_spec[:500] + "...")
         return design_spec
     
     def _build_prompt(self, 
@@ -210,11 +282,12 @@ DO NOT write code yet - only the design plan."""
                      design_spec: Optional[str] = None) -> str:
         """Build the prompt for the AI model"""
         
-        # Base prompt parts
+        # If we have a design spec, use implementation-focused prompt
         if design_spec:
-            base_prompt = f"""You are a senior full-stack developer implementing a pre-approved design.
+            base_prompt = f"""You are a SENIOR FULL-STACK DEVELOPER implementing a pre-approved design.
+You write BEAUTIFUL, MODERN, PRODUCTION-READY code.
 
-DESIGN SPECIFICATION:
+=== DESIGN SPECIFICATION ===
 {design_spec}
 
 TASK: {ticket_id}
@@ -222,124 +295,114 @@ ORIGINAL REQUEST: {description}
 
 {"EXISTING CODEBASE CONTEXT:" + context if context else ""}
 
-IMPLEMENTATION REQUIREMENTS:
+=== CRITICAL IMPLEMENTATION RULES ===
+
+🚨 FILE HANDLING (EXTREMELY IMPORTANT):
+1. READ the design spec FILES section CAREFULLY
+2. CREATE ONLY files listed under "CREATE"
+3. MODIFY ONLY files listed under "MODIFY"
+4. DO NOT TOUCH files listed under "IGNORE"
+5. If user says "create X.html" → CREATE NEW FILE, don't modify existing files!
+6. If unclear, CREATE new file rather than modify existing
+
+✨ CODE QUALITY:
 1. Follow the design specification EXACTLY
-2. Use the specified Tailwind CSS classes
-3. Implement all components described
-4. Create clean, well-commented code
-5. Ensure responsive design
-6. Add proper HTML5 semantics
-7. Include all interactions and states"""
-        else:
-            base_prompt = f"""You are a senior web developer. """
-        
-        # Add context if provided
-        context_section = ""
-        if context and not design_spec:
-            context_section = f"""
+2. Use the EXACT Tailwind classes specified
+3. Implement ALL components described
+4. Add helpful code comments
+5. Use semantic HTML5 tags
+6. Ensure mobile-responsive design
 
-EXISTING CODEBASE CONTEXT:
-{context}
+🎨 MODERN DESIGN REQUIREMENTS:
+1. Use provided color palette (hex codes + Tailwind)
+2. Include gradients, shadows, and effects as specified
+3. Add smooth transitions and hover effects
+4. Perfect spacing using Tailwind scale (p-8, gap-6, etc)
+5. Professional polish - make it look like Vercel/Linear/Stripe
 
-IMPORTANT: Use the existing code style, patterns, and conventions from the codebase above.
-"""
-        
-        # Different prompts for create vs edit mode
-        if mode == 'edit':
-            task_instruction = f"""Modify the existing code to implement this change:
+📱 RESPONSIVE DESIGN:
+1. Mobile-first approach
+2. Use responsive Tailwind classes: sm: md: lg: xl:
+3. Test at different breakpoints
+4. Ensure touch-friendly (min 44px tap targets)
 
-TICKET: {ticket_id}
-CHANGE REQUEST: {description}
+=== EXAMPLES OF BEAUTIFUL COMPONENTS ===
 
-REQUIREMENTS:
-1. Study the existing code carefully
-2. Make minimal, focused changes
-3. Preserve existing functionality
-4. Follow the established code patterns
-5. Update only what's necessary
-6. Maintain code quality and style
-7. Add comments explaining changes"""
-        else:
-            task_instruction = f"""Generate complete, production-ready code for this task:
+MODERN BUTTON:
+<button class="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-8 py-4 rounded-xl font-semibold shadow-lg shadow-blue-500/50 hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300">
+  Click Me
+</button>
 
-TICKET: {ticket_id}
-TASK: {description}
+BEAUTIFUL CARD:
+<div class="bg-white rounded-2xl shadow-xl shadow-slate-200/50 p-8 border border-slate-100 hover:shadow-2xl hover:-translate-y-1 transition-all duration-300">
+  <h3 class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">Card Title</h3>
+  <p class="text-slate-600 leading-relaxed mb-6">Beautiful card with gradient text and subtle hover effect.</p>
+</div>
 
-REQUIREMENTS:
-1. Generate ALL necessary files (HTML, CSS, JavaScript)
-2. Use modern web development best practices
-3. Create visually appealing UI with good design
-4. Include helpful comments in the code
-5. Ensure responsive design (mobile-friendly)
-6. Use semantic HTML5
-7. Add proper meta tags and structure"""
-        
-        # Output format instruction
-        output_format = """
+MODERN FORM INPUT:
+<input type="text" 
+       class="w-full px-4 py-3 rounded-lg border-2 border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all duration-200 outline-none" 
+       placeholder="Enter text...">
 
-OUTPUT FORMAT:
-You MUST return ONLY valid JSON in this EXACT structure (no markdown, no code blocks, no explanations):
+NOW CREATE CODE WITH THIS LEVEL OF QUALITY!"""
+            
+            # Output format
+            output_format = """
+
+=== OUTPUT FORMAT (CRITICAL) ===
+
+You MUST return ONLY valid JSON in this EXACT structure.
+NO markdown, NO code blocks, NO explanations - JUST PURE JSON:
 
 {
   "files": [
     {
-      "path": "index.html",
+      "path": "exact-filename.html",
       "content": "<!DOCTYPE html>..."
     },
     {
-      "path": "style.css",
-      "content": "body { ... }"
-    },
-    {
-      "path": "script.js",
-      "content": "console.log(...);"
+      "path": "styles.css",
+      "content": "/* CSS here */..."
     }
   ],
-  "summary": "Brief 1-2 sentence summary of what was created/changed"
+  "summary": "Brief 1-2 sentence summary"
 }
 
-CRITICAL: Return ONLY the JSON object above, nothing else. No markdown formatting, no explanations, just pure JSON."""
+🚨 CRITICAL JSON RULES:
+1. Return ONLY the JSON object above
+2. No ```json``` code blocks
+3. No markdown formatting
+4. No explanatory text before/after JSON
+5. File paths must match design spec EXACTLY
+6. Content must be complete, valid code
+
+Double-check: Am I returning ONLY JSON? No extra text?"""
+            
+            return base_prompt + output_format
         
-        return base_prompt + context_section + task_instruction + output_format
-    
-    def _build_prompt_old(self, ticket_id: str, description: str) -> str:
-        """Build the prompt for the AI model (old version for reference)"""
-        return f"""You are a senior web developer. Generate complete, production-ready code for this task:
+        else:
+            # Fallback for old-style without design spec
+            base_prompt = f"""You are a senior web developer generating production-ready code.
 
-TICKET: {ticket_id}
-TASK: {description}
+TASK: {ticket_id}
+DESCRIPTION: {description}
 
-REQUIREMENTS:
-1. Generate ALL necessary files (HTML, CSS, JavaScript)
-2. Use modern web development best practices
-3. Create visually appealing UI with good design
-4. Include helpful comments in the code
-5. Ensure responsive design (mobile-friendly)
-6. Use semantic HTML5
-7. Add proper meta tags and structure
+{"EXISTING CODEBASE:" + context if context else ""}
+
+Generate complete, modern, beautiful code following best practices."""
+            
+            output_format = """
 
 OUTPUT FORMAT:
-You MUST return ONLY valid JSON in this EXACT structure (no markdown, no code blocks, no explanations):
+Return ONLY valid JSON:
+{
+  "files": [{"path": "file.html", "content": "..."}],
+  "summary": "What was created"
+}
 
-{{
-  "files": [
-    {{
-      "path": "index.html",
-      "content": "<!DOCTYPE html>..."
-    }},
-    {{
-      "path": "style.css",
-      "content": "body {{ ... }}"
-    }},
-    {{
-      "path": "script.js",
-      "content": "console.log(...);"
-    }}
-  ],
-  "summary": "Brief 1-2 sentence summary of what was created"
-}}
-
-CRITICAL: Return ONLY the JSON object above, nothing else. No markdown formatting, no explanations, just pure JSON."""
+NO markdown, NO explanations, JUST JSON."""
+            
+            return base_prompt + output_format
     
     def _parse_ai_output(self, output: str) -> Dict:
         """Parse AI output to extract JSON"""
