@@ -462,6 +462,126 @@ function closeNewProjectModal() {
 }
 
 // ═══════════════════════════════════════════════════════
+// FILES MODAL
+// ═══════════════════════════════════════════════════════
+
+async function openFilesModal() {
+    if (!currentProject) {
+        alert('No project selected');
+        return;
+    }
+    
+    const modal = document.getElementById('files-modal');
+    modal.classList.add('active');
+    
+    // Load files
+    await loadProjectFiles(currentProject.id);
+}
+
+function closeFilesModal() {
+    const modal = document.getElementById('files-modal');
+    modal.classList.remove('active');
+}
+
+async function loadProjectFiles(projectId) {
+    try {
+        const response = await fetch(`/api/projects/${projectId}/files`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            document.getElementById('files-list').innerHTML = `
+                <div class="empty-state-small">
+                    <p>${data.error}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Display summary
+        const summary = data.summary;
+        document.getElementById('files-summary').innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; padding: 1rem; background: var(--color-background); border-radius: var(--radius-md);">
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--color-text-secondary); margin-bottom: 0.25rem;">Total Files</div>
+                    <div style="font-size: 1.5rem; font-weight: 600;">${summary.total_files}</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--color-text-secondary); margin-bottom: 0.25rem;">Code Files</div>
+                    <div style="font-size: 1.5rem; font-weight: 600;">${summary.code_files}</div>
+                </div>
+                <div>
+                    <div style="font-size: 0.75rem; color: var(--color-text-secondary); margin-bottom: 0.25rem;">Lines of Code</div>
+                    <div style="font-size: 1.5rem; font-weight: 600;">${summary.total_lines.toLocaleString()}</div>
+                </div>
+            </div>
+        `;
+        
+        // Display files
+        const filesList = document.getElementById('files-list');
+        
+        if (data.files.length === 0) {
+            filesList.innerHTML = '<div class="empty-state-small"><p>No files found</p></div>';
+            return;
+        }
+        
+        // Group files by directory
+        const filesByDir = {};
+        data.files.forEach(file => {
+            const parts = file.path.split('/');
+            const dir = parts.length > 1 ? parts[0] : '/';
+            if (!filesByDir[dir]) {
+                filesByDir[dir] = [];
+            }
+            filesByDir[dir].push(file);
+        });
+        
+        let html = '<div style="max-height: 400px; overflow-y: auto;">';
+        
+        Object.keys(filesByDir).sort().forEach(dir => {
+            html += `
+                <div style="margin-bottom: 1.5rem;">
+                    <div style="font-weight: 600; font-size: 0.875rem; color: var(--color-text); margin-bottom: 0.5rem; padding: 0.5rem; background: var(--color-background); border-radius: var(--radius-sm);">
+                        📁 ${dir}
+                    </div>
+                    <div style="padding-left: 1rem;">
+            `;
+            
+            filesByDir[dir].forEach(file => {
+                const fileName = file.path.split('/').pop();
+                const sizeKB = (file.size / 1024).toFixed(1);
+                const icon = file.is_code ? '📄' : '📋';
+                
+                html += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem; border-bottom: 1px solid var(--color-border);">
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span>${icon}</span>
+                            <span style="font-family: monospace; font-size: 0.8125rem;">${fileName}</span>
+                        </div>
+                        <div style="display: flex; gap: 1rem; font-size: 0.75rem; color: var(--color-text-secondary);">
+                            ${file.lines > 0 ? `<span>${file.lines} lines</span>` : ''}
+                            <span>${sizeKB} KB</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div></div>';
+        });
+        
+        html += '</div>';
+        filesList.innerHTML = html;
+        
+    } catch (error) {
+        console.error('Failed to load files:', error);
+        document.getElementById('files-list').innerHTML = `
+            <div class="empty-state-small">
+                <p>Error loading files: ${error.message}</p>
+            </div>
+        `;
+    }
+}
+
+// ═══════════════════════════════════════════════════════
 // TOOLTIPS
 // ═══════════════════════════════════════════════════════
 

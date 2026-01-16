@@ -185,6 +185,55 @@ def get_project_tickets(project_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/projects/<project_id>/files', methods=['GET'])
+def get_project_files(project_id):
+    """Get repository file structure for a project"""
+    try:
+        project = project_manager.get_project(project_id)
+        if not project:
+            return jsonify({'success': False, 'error': 'Project not found'}), 404
+        
+        if not project.get('repo_name'):
+            return jsonify({'success': False, 'error': 'No repository connected'}), 400
+        
+        # Get or create indexer
+        repo_name = project['repo_name']
+        if repo_name not in repo_indexers:
+            git_ops = GitOperations(repo_name)
+            indexer = RepositoryIndexer(git_ops.repo_path)
+            indexer.index()
+            repo_indexers[repo_name] = indexer
+        else:
+            indexer = repo_indexers[repo_name]
+        
+        # Get file tree and summary
+        files_list = []
+        for rel_path, file_info in indexer.files.items():
+            files_list.append({
+                'path': rel_path,
+                'size': file_info.size,
+                'extension': file_info.extension,
+                'is_code': file_info.is_code,
+                'lines': file_info.lines
+            })
+        
+        # Sort by path
+        files_list.sort(key=lambda f: f['path'])
+        
+        summary = indexer.get_summary()
+        
+        return jsonify({
+            'success': True,
+            'files': files_list,
+            'summary': summary
+        })
+        
+    except Exception as e:
+        print(f"Error getting project files: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # ───────────────────────────────────────────────────────
 # ROUTES - TICKETS
 # ───────────────────────────────────────────────────────

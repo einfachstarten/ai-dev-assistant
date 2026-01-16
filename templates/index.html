@@ -212,6 +212,13 @@
                         <p id="project-description"></p>
                     </div>
                     <div class="project-info-actions">
+                        <button class="btn-secondary btn-sm" onclick="openFilesModal()" style="margin-right: 0.5rem;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 0.25rem;">
+                                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                                <polyline points="13 2 13 9 20 9"/>
+                            </svg>
+                            Files
+                        </button>
                         <a id="project-repo-link" href="#" target="_blank" class="btn-secondary btn-sm" style="display: none;">
                             View Repository
                         </a>
@@ -372,6 +379,31 @@
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeNewProjectModal()">Cancel</button>
                 <button class="btn-primary" onclick="createProject()">Create Project</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Files Modal -->
+    <div id="files-modal" class="modal">
+        <div class="modal-overlay" onclick="closeFilesModal()"></div>
+        <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3>Repository Files</h3>
+                <button class="btn-icon" onclick="closeFilesModal()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <div id="files-summary" style="margin-bottom: 1.5rem;"></div>
+                <div id="files-list"></div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeFilesModal()">Close</button>
             </div>
         </div>
     </div>
