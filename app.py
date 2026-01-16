@@ -339,20 +339,21 @@ def ticket_status(ticket_id):
 # WORKFLOW EXECUTION
 # ───────────────────────────────────────────────────────
 
-def send_status_update(ticket_id, step, progress, complete=False, error=None, pr_url=None):
+def send_status_update(ticket_id, step, progress, complete=False, error=None, pr_url=None, details=None):
     """Send status update to SSE stream"""
     status = {
         'step': step,
         'progress': progress,
         'complete': complete,
         'error': error,
-        'pr_url': pr_url
+        'pr_url': pr_url,
+        'details': details  # Add support for detailed multi-line information
     }
-    
+
     queue = ticket_queues.get(ticket_id)
     if queue:
         queue.put(status)
-    
+
     ticket_status_store[ticket_id] = status
 
 def run_enhanced_workflow(project_id, ticket_id, description, repo_name):
@@ -397,13 +398,27 @@ def run_enhanced_workflow(project_id, ticket_id, description, repo_name):
         mode = detect_mode(description, target_files, relevant_files)
 
         # TRANSPARENCY: Show understanding before generation
-        send_status_update(ticket_id, f'📋 Understanding: {mode} mode, {len(relevant_files)} relevant files', 18)
-        time.sleep(1.0)
-
         understanding_summary = generate_understanding_summary(
             ticket_id, description, mode, target_files, relevant_files
         )
-        send_status_update(ticket_id, f'✓ Plan: {understanding_summary}', 19)
+
+        # Build detailed understanding for UI
+        understanding_details = f"🎯 UNDERSTANDING\n\n"
+        understanding_details += f"Description: {description}\n"
+        understanding_details += f"Mode: {mode}\n"
+        understanding_details += f"Target Files: {', '.join(target_files) if target_files else 'Auto-detect'}\n"
+        understanding_details += f"Relevant Context: {len(relevant_files)} files\n"
+        if relevant_files:
+            understanding_details += f"\nContext Files:\n"
+            for rf in relevant_files[:5]:
+                understanding_details += f"  • {rf.file_info.relative_path} (score: {rf.score:.1f})\n"
+
+        send_status_update(
+            ticket_id,
+            f'📋 Understanding & Plan',
+            18,
+            details=understanding_details
+        )
         time.sleep(1.5)
 
         send_status_update(
@@ -466,9 +481,23 @@ def run_enhanced_workflow(project_id, ticket_id, description, repo_name):
         pr_url = git_ops.create_pull_request(ticket_id, description, branch_name, files)
         
         # TRANSPARENCY: Show changes summary
-        send_status_update(ticket_id, 'Generating summary...', 95)
         changes_summary = generate_changes_summary(files, mode)
-        send_status_update(ticket_id, f'📝 Changes: {changes_summary}', 98)
+
+        # Build detailed changes for UI
+        changes_details = f"📝 CHANGES SUMMARY\n\n"
+        changes_details += f"Total Files: {len(files)}\n"
+        changes_details += f"Operation: {mode}\n\n"
+        changes_details += f"Files Changed:\n"
+        for f in files:
+            lines = f.get('content', '').count('\n') + 1 if f.get('content') else '?'
+            changes_details += f"  • {f['path']} (~{lines} lines)\n"
+
+        send_status_update(
+            ticket_id,
+            f'📝 Changes Summary',
+            98,
+            details=changes_details
+        )
         time.sleep(1.0)
 
         # Step 10: Save ticket to project with workflow data

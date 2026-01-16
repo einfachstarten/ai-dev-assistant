@@ -335,22 +335,45 @@ function subscribeToProgress(ticketId, description) {
     
     eventSource.onmessage = function(event) {
         const data = JSON.parse(event.data);
-        
+
         if (data.keepalive) return;
-        
+
         // Update progress
         document.getElementById('progress-fill').style.width = data.progress + '%';
         document.getElementById('progress-percentage').textContent = data.progress + '%';
         document.getElementById('current-step').textContent = data.step;
-        
+
         // Add to log
         const log = document.getElementById('steps-log');
         const item = document.createElement('div');
         item.className = 'step-log-item';
-        item.textContent = data.step;
+
+        // Main step text
+        const stepText = document.createElement('div');
+        stepText.textContent = data.step;
+        stepText.style.fontWeight = '500';
+        item.appendChild(stepText);
+
+        // Add details if present
+        if (data.details) {
+            const detailsDiv = document.createElement('div');
+            detailsDiv.className = 'step-details';
+            detailsDiv.style.marginTop = '0.5rem';
+            detailsDiv.style.padding = '0.75rem';
+            detailsDiv.style.background = 'var(--color-background)';
+            detailsDiv.style.borderRadius = 'var(--radius-sm)';
+            detailsDiv.style.fontSize = '0.875rem';
+            detailsDiv.style.fontFamily = 'monospace';
+            detailsDiv.style.whiteSpace = 'pre-wrap';
+            detailsDiv.style.color = 'var(--color-text-secondary)';
+            detailsDiv.style.lineHeight = '1.5';
+            detailsDiv.textContent = data.details;
+            item.appendChild(detailsDiv);
+        }
+
         log.appendChild(item);
         log.scrollTop = log.scrollHeight;
-        
+
         // Handle completion
         if (data.complete) {
             eventSource.close();
@@ -359,7 +382,7 @@ function subscribeToProgress(ticketId, description) {
                 loadProjectTickets(currentProject.id);
             }, 500);
         }
-        
+
         // Handle errors
         if (data.error) {
             eventSource.close();
