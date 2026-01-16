@@ -196,15 +196,12 @@ def get_project_files(project_id):
         if not project.get('repo_name'):
             return jsonify({'success': False, 'error': 'No repository connected'}), 400
         
-        # Get or create indexer
+        # Get or create indexer (force refresh to ensure we get all files)
         repo_name = project['repo_name']
-        if repo_name not in repo_indexers:
-            git_ops = GitOperations(repo_name)
-            indexer = RepositoryIndexer(git_ops.repo_path)
-            indexer.index()
-            repo_indexers[repo_name] = indexer
-        else:
-            indexer = repo_indexers[repo_name]
+        git_ops = GitOperations(repo_name)
+        indexer = RepositoryIndexer(git_ops.repo_path)
+        indexer.index(force_refresh=True)
+        repo_indexers[repo_name] = indexer
         
         # Get file tree and summary
         files_list = []

@@ -53,7 +53,7 @@ class RepositoryIndexer:
     }
     
     IGNORE_FILES = {
-        '.gitignore', '.dockerignore', '.DS_Store',
+        '.DS_Store',
         'package-lock.json', 'yarn.lock', 'poetry.lock',
         '.env', '.env.local', '.env.production'
     }
@@ -263,7 +263,11 @@ class RepositoryIndexer:
         """Check if file should be ignored"""
         if filename in self.IGNORE_FILES:
             return True
-        
+
+        # Ignore hidden files starting with . (except known code files like .gitignore)
+        if filename.startswith('.') and filename not in {'.gitignore', '.dockerignore'}:
+            return True
+
         ext = Path(filename).suffix.lower()
         return ext in self.BINARY_EXTENSIONS
     
