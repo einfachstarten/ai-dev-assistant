@@ -334,46 +334,56 @@ def send_status_update(ticket_id, step, progress, complete=False, error=None, pr
     ticket_status_store[ticket_id] = status
 
 def run_enhanced_workflow(project_id, ticket_id, description, repo_name):
-    """Enhanced workflow with project integration"""
+    """Enhanced workflow with project integration and transparency"""
     try:
         # Step 1: Initialize
         send_status_update(ticket_id, 'Initializing...', 5)
         time.sleep(0.5)
-        
+
         git_ops = GitOperations(repo_name)
         repo_path = git_ops.repo_path
-        
+
         # Step 2: Index repository
         send_status_update(ticket_id, 'Scanning repository...', 10)
-        
+
         if repo_name not in repo_indexers:
             indexer = RepositoryIndexer(repo_path)
             indexer.index()
             repo_indexers[repo_name] = indexer
         else:
             indexer = repo_indexers[repo_name]
-        
+
         summary = indexer.get_summary()
         print(f"Repository: {summary['code_files']} files, {summary['total_lines']} lines")
-        
+
         # Step 3: Context selection
         send_status_update(ticket_id, 'Analyzing files...', 15)
-        
+
         selector = SmartContextSelector(indexer)
         target_files = detect_target_files(description)
-        
+
         relevant_files = selector.select_context(
             task_description=description,
             target_files=target_files,
             max_files=8,
             max_tokens=6000
         )
-        
+
         context = selector.format_context_for_ai(relevant_files)
-        
+
         # Step 4: Detect mode
         mode = detect_mode(description, target_files, relevant_files)
-        
+
+        # TRANSPARENCY: Show understanding before generation
+        send_status_update(ticket_id, f'📋 Understanding: {mode} mode, {len(relevant_files)} relevant files', 18)
+        time.sleep(1.0)
+
+        understanding_summary = generate_understanding_summary(
+            ticket_id, description, mode, target_files, relevant_files
+        )
+        send_status_update(ticket_id, f'✓ Plan: {understanding_summary}', 19)
+        time.sleep(1.5)
+
         send_status_update(
             ticket_id,
             f'Generating code ({mode} mode)...',
@@ -440,11 +450,17 @@ def run_enhanced_workflow(project_id, ticket_id, description, repo_name):
             description=description,
             pr_url=pr_url
         )
-        
+
+        # TRANSPARENCY: Show changes summary
+        send_status_update(ticket_id, 'Generating summary...', 95)
+        changes_summary = generate_changes_summary(files, mode)
+        send_status_update(ticket_id, f'📝 Changes: {changes_summary}', 98)
+        time.sleep(1.0)
+
         # Complete
         send_status_update(
             ticket_id,
-            f'Complete! {len(files)} file(s) {mode}ed',
+            f'✅ Complete! {len(files)} file(s) {mode}ed',
             100,
             complete=True,
             pr_url=pr_url
@@ -463,6 +479,76 @@ def run_enhanced_workflow(project_id, ticket_id, description, repo_name):
             complete=True,
             error=error_msg
         )
+
+def generate_understanding_summary(ticket_id: str, description: str, mode: str,
+                                  target_files: list, relevant_files: list) -> str:
+    """Generate a summary of what the AI understood and plans to do"""
+    summary_parts = []
+
+    # What we understood
+    action = "create new" if mode == "create" else "modify existing"
+    summary_parts.append(f"Will {action} files")
+
+    # Target files mentioned
+    if target_files:
+        summary_parts.append(f"targeting {', '.join(target_files[:3])}")
+
+    # Context files
+    if relevant_files:
+        file_names = [rf.file_info.relative_path for rf in relevant_files[:3]]
+        summary_parts.append(f"using context from {', '.join(file_names)}")
+
+    result = ' | '.join(summary_parts)
+    print(f"\n{'='*60}")
+    print(f"🎯 TICKET UNDERSTANDING: {ticket_id}")
+    print(f"{'='*60}")
+    print(f"Description: {description}")
+    print(f"Mode: {mode}")
+    print(f"Target Files: {target_files if target_files else 'Auto-detect'}")
+    print(f"Relevant Context: {len(relevant_files)} files")
+    if relevant_files:
+        for rf in relevant_files[:5]:
+            print(f"  • {rf.file_info.relative_path} (score: {rf.score:.1f})")
+    print(f"{'='*60}\n")
+
+    return result
+
+def generate_changes_summary(files: list, mode: str) -> str:
+    """Generate a summary of all changes made"""
+    summary_parts = []
+
+    # Count by operation
+    file_paths = [f['path'] for f in files]
+
+    # Group by directory
+    dirs = {}
+    for path in file_paths:
+        dir_name = str(Path(path).parent) if Path(path).parent != Path('.') else '/'
+        if dir_name not in dirs:
+            dirs[dir_name] = []
+        dirs[dir_name].append(Path(path).name)
+
+    # Build summary
+    summary_parts.append(f"{len(files)} files {mode}ed")
+
+    for dir_name, filenames in sorted(dirs.items())[:3]:
+        summary_parts.append(f"{dir_name}: {', '.join(filenames[:2])}")
+
+    result = ' | '.join(summary_parts)
+
+    print(f"\n{'='*60}")
+    print(f"📝 CHANGES SUMMARY")
+    print(f"{'='*60}")
+    print(f"Total Files: {len(files)}")
+    print(f"Operation: {mode}")
+    print(f"\nFiles Changed:")
+    for f in files:
+        # Count lines if content available
+        lines = f.get('content', '').count('\n') + 1 if f.get('content') else '?'
+        print(f"  • {f['path']} (~{lines} lines)")
+    print(f"{'='*60}\n")
+
+    return result
 
 def detect_target_files(description: str) -> list:
     """Detect file mentions in description"""
