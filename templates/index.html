@@ -408,6 +408,33 @@
         </div>
     </div>
 
+    <!-- Ticket Detail Modal -->
+    <div id="ticket-detail-modal" class="modal">
+        <div class="modal-overlay" onclick="closeTicketDetailModal()"></div>
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3 id="ticket-detail-title">Ticket Details</h3>
+                <button class="btn-icon" onclick="closeTicketDetailModal()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div id="ticket-detail-content"></div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeTicketDetailModal()">Close</button>
+                <button id="ticket-detail-pr-btn" class="btn-primary" style="display: none;" onclick="openTicketPR()">
+                    View Pull Request
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Tooltip -->
     <div id="tooltip" class="tooltip"></div>
 

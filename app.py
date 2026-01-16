@@ -185,6 +185,28 @@ def get_project_tickets(project_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/projects/<project_id>/tickets/<ticket_id>', methods=['GET'])
+def get_ticket_detail(project_id, ticket_id):
+    """Get detailed information about a specific ticket"""
+    try:
+        project = project_manager.get_project(project_id)
+        if not project:
+            return jsonify({'success': False, 'error': 'Project not found'}), 404
+
+        # Find ticket
+        ticket = None
+        for t in project.get('tickets', []):
+            if t['ticket_id'] == ticket_id:
+                ticket = t
+                break
+
+        if not ticket:
+            return jsonify({'success': False, 'error': 'Ticket not found'}), 404
+
+        return jsonify({'success': True, 'ticket': ticket})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/projects/<project_id>/files', methods=['GET'])
 def get_project_files(project_id):
     """Get repository file structure for a project"""
@@ -443,19 +465,40 @@ def run_enhanced_workflow(project_id, ticket_id, description, repo_name):
         send_status_update(ticket_id, 'Creating PR...', 90)
         pr_url = git_ops.create_pull_request(ticket_id, description, branch_name, files)
         
-        # Step 10: Save ticket to project
-        project_manager.add_ticket(
-            project_id=project_id,
-            ticket_id=ticket_id,
-            description=description,
-            pr_url=pr_url
-        )
-
         # TRANSPARENCY: Show changes summary
         send_status_update(ticket_id, 'Generating summary...', 95)
         changes_summary = generate_changes_summary(files, mode)
         send_status_update(ticket_id, f'📝 Changes: {changes_summary}', 98)
         time.sleep(1.0)
+
+        # Step 10: Save ticket to project with workflow data
+        workflow_data = {
+            'mode': mode,
+            'target_files': target_files,
+            'relevant_files': [
+                {
+                    'path': rf.file_info.relative_path,
+                    'score': rf.score,
+                    'reasons': rf.reasons
+                } for rf in relevant_files
+            ],
+            'files_changed': [
+                {
+                    'path': f['path'],
+                    'lines': f.get('content', '').count('\n') + 1 if f.get('content') else 0
+                } for f in files
+            ],
+            'understanding_summary': understanding_summary,
+            'changes_summary': changes_summary
+        }
+
+        project_manager.add_ticket(
+            project_id=project_id,
+            ticket_id=ticket_id,
+            description=description,
+            pr_url=pr_url,
+            workflow_data=workflow_data
+        )
 
         # Complete
         send_status_update(

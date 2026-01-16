@@ -154,35 +154,38 @@ class ProjectManager:
     # TICKET MANAGEMENT
     # ─────────────────────────────────────────────────────
     
-    def add_ticket(self, 
+    def add_ticket(self,
                    project_id: str,
                    ticket_id: str,
                    description: str,
-                   pr_url: Optional[str] = None) -> Optional[Dict]:
+                   pr_url: Optional[str] = None,
+                   workflow_data: Optional[Dict] = None) -> Optional[Dict]:
         """
-        Add ticket to project
-        
+        Add ticket to project with workflow information
+
         Args:
             project_id: Project ID
             ticket_id: Ticket ID (e.g., FEAT-001)
             description: Ticket description
             pr_url: Pull request URL (optional)
-            
+            workflow_data: Workflow execution data (mode, files, context, etc.)
+
         Returns:
             Updated project dict
         """
         projects = self._load_projects()
-        
+
         if project_id not in projects:
             return None
-        
+
         ticket = {
             'ticket_id': ticket_id,
             'description': description,
             'pr_url': pr_url,
             'created_at': datetime.now().isoformat(),
             'status': 'completed' if pr_url else 'in_progress',
-            'pr_status': None
+            'pr_status': None,
+            'workflow': workflow_data or {}
         }
         
         # Get PR status if URL provided

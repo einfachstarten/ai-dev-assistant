@@ -214,12 +214,11 @@ async function loadProjectTickets(projectId) {
                 <div class="ticket-desc">${ticket.description}</div>
                 ${statusBadge}
             `;
-            
-            if (ticket.pr_url) {
-                item.onclick = () => window.open(ticket.pr_url, '_blank');
-                item.style.cursor = 'pointer';
-            }
-            
+
+            // Click to view ticket details instead of directly opening PR
+            item.onclick = () => openTicketDetail(currentProject.id, ticket.ticket_id);
+            item.style.cursor = 'pointer';
+
             ticketsList.appendChild(item);
         });
         
@@ -623,6 +622,129 @@ function setupTooltips() {
             }, 100);
         });
     });
+}
+
+// ═══════════════════════════════════════════════════════
+// TICKET DETAIL MODAL
+// ═══════════════════════════════════════════════════════
+
+let currentTicketDetail = null;
+
+async function openTicketDetail(projectId, ticketId) {
+    try {
+        const response = await fetch(`/api/projects/${projectId}/tickets/${ticketId}`);
+        const data = await response.json();
+
+        if (!data.success) {
+            alert('Failed to load ticket details: ' + data.error);
+            return;
+        }
+
+        const ticket = data.ticket;
+        currentTicketDetail = ticket;
+
+        // Update modal title
+        document.getElementById('ticket-detail-title').textContent = `Ticket ${ticket.ticket_id}`;
+
+        // Build content
+        const workflow = ticket.workflow || {};
+        let html = '';
+
+        // Basic info
+        html += `<div style="margin-bottom: 2rem;">`;
+        html += `<h4 style="margin-bottom: 0.5rem;">Description</h4>`;
+        html += `<p style="color: var(--color-text-secondary);">${ticket.description}</p>`;
+        html += `</div>`;
+
+        // Workflow understanding
+        if (workflow.understanding_summary) {
+            html += `<div style="margin-bottom: 2rem; padding: 1rem; background: var(--color-background); border-radius: var(--radius-md);">`;
+            html += `<h4 style="margin-bottom: 0.5rem;">🎯 Understanding</h4>`;
+            html += `<p style="font-size: 0.875rem; color: var(--color-text-secondary);">${workflow.understanding_summary}</p>`;
+            html += `</div>`;
+        }
+
+        // Mode and context
+        if (workflow.mode) {
+            html += `<div style="margin-bottom: 2rem;">`;
+            html += `<h4 style="margin-bottom: 0.75rem;">📋 Workflow Details</h4>`;
+            html += `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">`;
+            html += `<div>`;
+            html += `<div style="font-size: 0.75rem; color: var(--color-text-secondary); margin-bottom: 0.25rem;">Mode</div>`;
+            html += `<div style="font-weight: 600;">${workflow.mode}</div>`;
+            html += `</div>`;
+            html += `<div>`;
+            html += `<div style="font-size: 0.75rem; color: var(--color-text-secondary); margin-bottom: 0.25rem;">Files Changed</div>`;
+            html += `<div style="font-weight: 600;">${workflow.files_changed ? workflow.files_changed.length : 0}</div>`;
+            html += `</div>`;
+            html += `</div>`;
+            html += `</div>`;
+        }
+
+        // Relevant context files
+        if (workflow.relevant_files && workflow.relevant_files.length > 0) {
+            html += `<div style="margin-bottom: 2rem;">`;
+            html += `<h4 style="margin-bottom: 0.75rem;">🔍 Context Files Used</h4>`;
+            workflow.relevant_files.forEach(rf => {
+                html += `<div style="padding: 0.5rem; border-bottom: 1px solid var(--color-border); font-size: 0.875rem;">`;
+                html += `<span style="font-family: monospace;">${rf.path}</span>`;
+                html += `<span style="color: var(--color-text-secondary); margin-left: 0.5rem;">(score: ${rf.score.toFixed(1)})</span>`;
+                html += `</div>`;
+            });
+            html += `</div>`;
+        }
+
+        // Files changed
+        if (workflow.files_changed && workflow.files_changed.length > 0) {
+            html += `<div style="margin-bottom: 2rem;">`;
+            html += `<h4 style="margin-bottom: 0.75rem;">📝 Files Changed</h4>`;
+            workflow.files_changed.forEach(file => {
+                html += `<div style="padding: 0.5rem; border-bottom: 1px solid var(--color-border); font-size: 0.875rem;">`;
+                html += `<span style="font-family: monospace;">${file.path}</span>`;
+                if (file.lines > 0) {
+                    html += `<span style="color: var(--color-text-secondary); margin-left: 0.5rem;">(~${file.lines} lines)</span>`;
+                }
+                html += `</div>`;
+            });
+            html += `</div>`;
+        }
+
+        // Changes summary
+        if (workflow.changes_summary) {
+            html += `<div style="padding: 1rem; background: var(--color-success-bg); border-radius: var(--radius-md); border: 1px solid var(--color-success);">`;
+            html += `<h4 style="margin-bottom: 0.5rem; color: var(--color-success);">✅ Summary</h4>`;
+            html += `<p style="font-size: 0.875rem; color: var(--color-text);">${workflow.changes_summary}</p>`;
+            html += `</div>`;
+        }
+
+        document.getElementById('ticket-detail-content').innerHTML = html;
+
+        // Show/hide PR button
+        const prBtn = document.getElementById('ticket-detail-pr-btn');
+        if (ticket.pr_url) {
+            prBtn.style.display = 'inline-flex';
+        } else {
+            prBtn.style.display = 'none';
+        }
+
+        // Show modal
+        document.getElementById('ticket-detail-modal').classList.add('active');
+
+    } catch (error) {
+        console.error('Failed to load ticket details:', error);
+        alert('Error loading ticket details: ' + error.message);
+    }
+}
+
+function closeTicketDetailModal() {
+    document.getElementById('ticket-detail-modal').classList.remove('active');
+    currentTicketDetail = null;
+}
+
+function openTicketPR() {
+    if (currentTicketDetail && currentTicketDetail.pr_url) {
+        window.open(currentTicketDetail.pr_url, '_blank');
+    }
 }
 
 // ═══════════════════════════════════════════════════════
