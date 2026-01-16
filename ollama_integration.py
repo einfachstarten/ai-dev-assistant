@@ -8,13 +8,14 @@ import json
 import requests
 from typing import Dict, List, Optional
 from context_selector import SmartContextSelector, RelevantFile
+import time
 
 
 class OllamaCodeGenerator:
     def __init__(self, model='qwen2.5-coder:7b', base_url='http://localhost:11434'):
         """
         Initialize Ollama code generator
-        
+
         Args:
             model: Ollama model name
             base_url: Ollama API base URL
@@ -22,6 +23,58 @@ class OllamaCodeGenerator:
         self.model = model
         self.base_url = base_url
         self.api_url = f"{base_url}/api/generate"
+
+    def _call_ollama_with_retry(self, prompt: str, timeout: int, max_retries: int = 2) -> str:
+        """
+        Call Ollama API with retry logic for timeout errors
+
+        Args:
+            prompt: The prompt to send
+            timeout: Timeout in seconds
+            max_retries: Maximum number of retries
+
+        Returns:
+            AI response text
+        """
+        last_error = None
+
+        for attempt in range(max_retries + 1):
+            try:
+                if attempt > 0:
+                    print(f"⚠️  Retry attempt {attempt}/{max_retries} after timeout...")
+                    time.sleep(2)  # Brief pause before retry
+
+                response = requests.post(
+                    self.api_url,
+                    json={
+                        'model': self.model,
+                        'prompt': prompt,
+                        'stream': False,
+                        'options': {
+                            'temperature': 0.7,
+                            'top_p': 0.9,
+                            'num_predict': 4000
+                        }
+                    },
+                    timeout=timeout
+                )
+
+                if response.status_code != 200:
+                    raise Exception(f"Ollama API error: {response.text}")
+
+                result = response.json()
+                return result.get('response', '')
+
+            except requests.exceptions.Timeout as e:
+                last_error = e
+                print(f"⏱️  Request timed out after {timeout}s (attempt {attempt + 1}/{max_retries + 1})")
+                continue
+            except requests.exceptions.RequestException as e:
+                # For other request errors, don't retry
+                raise Exception(f"Ollama API connection error: {str(e)}")
+
+        # All retries failed
+        raise Exception(f"Ollama timed out after {max_retries + 1} attempts. The model may be overloaded or the task is too complex. Try a simpler description or check Ollama status.")
     
     def generate_ticket_id(self, description: str, project_tickets: List[Dict] = None) -> str:
         """
@@ -100,28 +153,9 @@ class OllamaCodeGenerator:
             design_spec=design_spec
         )
         
-        # Call Ollama API for implementation
-        response = requests.post(
-            self.api_url,
-            json={
-                'model': self.model,
-                'prompt': prompt,
-                'stream': False,
-                'options': {
-                    'temperature': 0.7,
-                    'top_p': 0.9,
-                    'num_predict': 4000  # Allow longer responses
-                }
-            },
-            timeout=120  # 2 minute timeout
-        )
-        
-        if response.status_code != 200:
-            raise Exception(f"Ollama API error: {response.text}")
-        
-        # Parse response
-        result = response.json()
-        ai_output = result.get('response', '')
+        # Call Ollama API for implementation with retry logic
+        print("💻 Phase 2: Generating implementation...")
+        ai_output = self._call_ollama_with_retry(prompt, timeout=600, max_retries=2)
         
         # Extract and parse JSON from AI output
         parsed = self._parse_ai_output(ai_output)
@@ -247,27 +281,9 @@ IGNORE: [list files to leave untouched]
 Be EXTREMELY specific with Tailwind classes. No vague descriptions!"""
 
         print("🎨 Phase 1: Generating design specification...")
-        
-        response = requests.post(
-            self.api_url,
-            json={
-                'model': self.model,
-                'prompt': prompt,
-                'stream': False,
-                'options': {
-                    'temperature': 0.9,
-                    'top_p': 0.95,
-                    'num_predict': 2500
-                }
-            },
-            timeout=90
-        )
-        
-        if response.status_code != 200:
-            raise Exception(f"Ollama API error: {response.text}")
-        
-        result = response.json()
-        design_spec = result.get('response', '')
+
+        # Use retry logic with extended timeout
+        design_spec = self._call_ollama_with_retry(prompt, timeout=300, max_retries=2)
         
         print(f"✅ Design spec generated ({len(design_spec)} chars)")
         print("📝 Design spec preview:")
